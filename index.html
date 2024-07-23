@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harmonic Motion Simulation</title>
+    <link rel="icon" href="icon16.png" type="image/x-icon"> <!-- Link to your favicon -->
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            margin: 20px;
+        }
+        .header img {
+            height: 50px; /* Adjust the logo size */
+            margin-right: 10px;
+        }
+        canvas {
+            border: 1px solid black;
+            margin: 10px;
+        }
+        .controls {
+            margin: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 90%;
+            max-width: 1000px;
+        }
+        .graph-container {
+            margin-bottom: 20px;
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+        }
+        .tooltip {
+            position: absolute;
+            background: #f9f9f9;
+            border: 1px solid #ccc;
+            padding: 5px;
+            font-size: 12px;
+            display: none;
+            pointer-events: none;
+        }
+        .click-info, .metrics-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #333;
+        }
+        .position-controls, .time-controls {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="logo.png" alt="Logo">
+        <h1>Harmonic Motion Simulation - Nguyen Huynh Dang Nhut</h1>
+    </div>
+    <div class="controls">
+        <label for="amplitude">Amplitude (A): </label>
+        <input type="number" id="amplitude" value="2" step="0.1">
+        <label for="angularFrequency">Angular Frequency (ω): </label>
+        <input type="text" id="angularFrequency" value="1">
+        <label for="phase">Phase (φ): </label>
+        <input type="text" id="phase" value="0">
+        <button onclick="startSimulation()">Start Simulation</button>
+    </div>
+    <div class="position-controls">
+        <label for="position">Position (x): </label>
+        <input type="number" id="position" step="0.1">
+        <label for="position-unit">Unit:</label>
+        <select id="position-unit">
+            <option value="mm">mm</option>
+            <option value="cm">cm</option>
+            <option value="m" selected>m</option>
+        </select>
+        <button onclick="calculateMetrics()">Calculate Metrics</button>
+    </div>
+    <div class="time-controls">
+        <label for="time">Time (t): </label>
+        <input type="number" id="time" step="0.1">
+        <button onclick="calculateTimeMetrics()">Calculate Time Metrics</button>
+    </div>
+    <div class="container">
+        <div class="graph-container">
+            <canvas id="graph" width="800" height="400"></canvas>
+            <div id="tooltip" class="tooltip"></div>
+        </div>
+        <div id="click-info" class="click-info"></div>
+        <div id="metrics-info" class="metrics-info"></div>
+    </div>
+
+    <script>
+        let graph, graphCtx, A, omega, phi, animationFrameId, graphPoints = [];
+        const labelInterval = 1; // Time interval for labels in seconds
+        const tooltip = document.getElementById('tooltip');
+        const clickInfo = document.getElementById('click-info');
+        const metricsInfo = document.getElementById('metrics-info');
+        const units = { mm: 0.001, cm: 0.01, m: 1 }; // Conversion factors
+
+        function parseExpression(input) {
+            return input.replace(/pi/g, Math.PI);
+        }
+
+        function draw(t) {
+            // Update graph points
+            graphPoints.push({ x: t, y: A * Math.cos(omega * t + phi) });
+
+            // Draw graph
+            graphCtx.clearRect(0, 0, graph.width, graph.height);
+
+            // Draw the zero line
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, graph.height / 2);
+            graphCtx.lineTo(graph.width, graph.height / 2);
+            graphCtx.strokeStyle = 'red'; // Color for the zero line
+            graphCtx.stroke();
+
+            // Draw amplitude lines
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, graph.height / 2 - A * 50);
+            graphCtx.lineTo(graph.width, graph.height / 2 - A * 50);
+            graphCtx.strokeStyle = 'blue'; // Color for the amplitude line
+            graphCtx.stroke();
+
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, graph.height / 2 + A * 50);
+            graphCtx.lineTo(graph.width, graph.height / 2 + A * 50);
+            graphCtx.strokeStyle = 'blue'; // Color for the amplitude line
+            graphCtx.stroke();
+
+            // Draw time labels on the zero line
+            graphCtx.fillStyle = 'black';
+            graphCtx.font = '12px Arial';
+            const xStep = labelInterval * 50; // Pixels per time interval
+            let labelTime = 0;
+
+            for (let x = 0; x < graph.width; x += xStep) {
+                graphCtx.beginPath();
+                graphCtx.moveTo(x, graph.height / 2 - 5);
+                graphCtx.lineTo(x, graph.height / 2 + 5);
+                graphCtx.strokeStyle = 'black';
+                graphCtx.stroke();
+
+                graphCtx.fillText(labelTime + 's', x + 2, graph.height / 2 - 10);
+                labelTime += labelInterval;
+            }
+
+            // Draw the harmonic motion graph
+            graphCtx.beginPath();
+            for (let i = 0; i < graphPoints.length; i++) {
+                const pt = graphPoints[i];
+                if (i === 0) {
+                    graphCtx.moveTo(pt.x * 50, graph.height / 2 - pt.y * 50);
+                } else {
+                    graphCtx.lineTo(pt.x * 50, graph.height / 2 - pt.y * 50);
+                }
+            }
+            graphCtx.strokeStyle = 'green';
+            graphCtx.stroke();
+
+            animationFrameId = requestAnimationFrame(() => draw(t + 0.02));
+        }
+
+        function startSimulation() {
+            cancelAnimationFrame(animationFrameId);
+            A = parseFloat(document.getElementById('amplitude').value);
+            omega = eval(parseExpression(document.getElementById('angularFrequency').value));
+            phi = eval(parseExpression(document.getElementById('phase').value));
+            graph = document.getElementById('graph');
+            graphCtx = graph.getContext('2d');
+            graphPoints = [];
+            draw(0);
+        }
+
+        function showClickInfo(event) {
+            const rect = graph.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            // Calculate the corresponding time and position
+            const time = x / 50;
+            const position = A * Math.cos(omega * time + phi);
+
+            // Display information
+            clickInfo.innerHTML = `Time: ${time.toFixed(2)}s<br>Position: ${position.toFixed(2)}`;
+        }
+
+        function calculateMetrics() {
+            const positionInput = parseFloat(document.getElementById('position').value);
+            const unit = document.getElementById('position-unit').value;
+            if (isNaN(positionInput)) {
+                metricsInfo.innerHTML = 'Please enter a valid position.';
+                return;
+            }
+
+            const conversionFactor = units[unit];
+            const positionInMeters = positionInput * conversionFactor;
+
+            // Find the time for the given position using the inverse of the cosine function
+            // Solving A * cos(omega * t + phi) = positionInMeters
+            let time = Math.acos(positionInMeters / A) / omega;
+            if (positionInMeters < 0) {
+                time = -time; // Handle the negative side if needed
+            }
+
+            // Calculate speed and acceleration
+            const angularVelocity = omega;
+            const speed = -A * angularVelocity * Math.sin(omega * time + phi);
+            const acceleration = -A * angularVelocity * angularVelocity * Math.cos(omega * time + phi);
+
+            // Display metrics
+            metricsInfo.innerHTML = `
+                Time: ${time.toFixed(2)} s<br>
+                Speed: ${speed.toFixed(2)} units/s<br>
+                Acceleration: ${acceleration.toFixed(2)} units/s²
+            `;
+        }
+
+        function calculateTimeMetrics() {
+            const timeInput = parseFloat(document.getElementById('time').value);
+            if (isNaN(timeInput)) {
+                metricsInfo.innerHTML = 'Please enter a valid time.';
+                return;
+            }
+
+            // Calculate position, speed, and acceleration for the given time
+            const position = A * Math.cos(omega * timeInput + phi);
+            const speed = -A * omega * Math.sin(omega * timeInput + phi);
+            const acceleration = -A * omega * omega * Math.cos(omega * timeInput + phi);
+
+            // Display metrics
+            metricsInfo.innerHTML = `
+                Position: ${position.toFixed(2)} units<br>
+                Speed: ${speed.toFixed(2)} units/s<br>
+                Acceleration: ${acceleration.toFixed(2)} units/s²
+            `;
+        }
+
+        graph.addEventListener('click', showClickInfo);
+    </script>
+</body>
+</html>
