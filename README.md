@@ -8,4 +8,5 @@ Enter all of value to run them, you can use the Calculate Metrics to show your
 - Time
 - Speed
 - Acceleration 
-![image](https://github.com/user-attachments/assets/874576ec-5f8b-4883-9df9-0fdb71158d14)
+![image](https://github.com/user-attachments/assets/c8414891-60e2-489f-bc26-109c5c2bbfb2)
+
