@@ -11,11 +11,19 @@
             flex-direction: column;
             align-items: center;
             font-family: Arial, sans-serif;
+            background-color: #f0f0f0; /* Light background for better contrast */
+            margin: 0;
+            padding: 0;
         }
         .header {
             display: flex;
             align-items: center;
             margin: 20px;
+            background-color: #ffffff; /* Header background color */
+            color: rgb(0, 0, 0); /* Text color in header */
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
         .header img {
             height: 50px; /* Adjust the logo size */
@@ -24,9 +32,35 @@
         canvas {
             border: 1px solid black;
             margin: 10px;
+            background-color: #ffffff; /* Canvas background color */
         }
-        .controls {
+        .controls, .position-controls, .time-controls {
             margin: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .controls label, .position-controls label, .time-controls label {
+            margin-right: 10px;
+        }
+        .controls input, .position-controls input, .time-controls input {
+            margin-right: 10px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .controls button, .position-controls button, .time-controls button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .controls button:hover, .position-controls button:hover, .time-controls button:hover {
+            background-color: #0754a7;
         }
         .container {
             display: flex;
@@ -58,6 +92,16 @@
         .position-controls, .time-controls {
             margin-top: 20px;
         }
+        .warning-notice {
+            padding: 15px;
+            margin: 20px;
+            background-color: #ffffcc;
+            border: 1px solid #ffcc00;
+            border-radius: 5px;
+            color: #333;
+            font-size: 16px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -65,9 +109,18 @@
         <img src="logo.png" alt="Logo">
         <h1>Harmonic Motion Simulation - Nguyen Huynh Dang Nhut</h1>
     </div>
+    <div class="warning-notice">
+        <h2>How to Use This Simulation</h2>
+        <p>1. Enter values for Amplitude (A), Angular Frequency (ω), and Phase (φ) in the respective fields.</p>
+        <p>2. Click "Start Simulation" to begin the harmonic motion graph.</p>
+        <p>3. Enter a position and select a unit to calculate metrics like time, speed, and acceleration at that position.</p>
+        <p>4. Enter a time to calculate the corresponding position, speed, and acceleration.</p>
+        <p>5. Click on the graph to view time and position information at that point.</p>
+        <p>6. To enter π, type pi for the simulation can run.</p>
+    </div>
     <div class="controls">
         <label for="amplitude">Amplitude (A): </label>
-        <input type="number" id="amplitude" value="2" step="0.1">
+        <input type="text" id="amplitude" value="2*pi">
         <label for="angularFrequency">Angular Frequency (ω): </label>
         <input type="text" id="angularFrequency" value="1">
         <label for="phase">Phase (φ): </label>
@@ -76,7 +129,7 @@
     </div>
     <div class="position-controls">
         <label for="position">Position (x): </label>
-        <input type="number" id="position" step="0.1">
+        <input type="text" id="position" step="0.1">
         <label for="position-unit">Unit:</label>
         <select id="position-unit">
             <option value="mm">mm</option>
@@ -87,12 +140,12 @@
     </div>
     <div class="time-controls">
         <label for="time">Time (t): </label>
-        <input type="number" id="time" step="0.1">
+        <input type="text" id="time" step="0.1">
         <button onclick="calculateTimeMetrics()">Calculate Time Metrics</button>
     </div>
     <div class="container">
         <div class="graph-container">
-            <canvas id="graph" width="800" height="400"></canvas>
+            <canvas id="graph" width="800" height="600"></canvas>
             <div id="tooltip" class="tooltip"></div>
         </div>
         <div id="click-info" class="click-info"></div>
@@ -100,7 +153,7 @@
     </div>
 
     <script>
-        let graph, graphCtx, A, omega, phi, animationFrameId, graphPoints = [];
+        let graph, graphCtx, A, omega, phi, animationFrameId, graphPoints = [], positionLineX;
         const labelInterval = 1; // Time interval for labels in seconds
         const tooltip = document.getElementById('tooltip');
         const clickInfo = document.getElementById('click-info');
@@ -168,12 +221,21 @@
             graphCtx.strokeStyle = 'green';
             graphCtx.stroke();
 
+            // Draw position line if defined
+            if (positionLineX !== undefined) {
+                graphCtx.beginPath();
+                graphCtx.moveTo(positionLineX, 0);
+                graphCtx.lineTo(positionLineX, graph.height);
+                graphCtx.strokeStyle = 'purple';
+                graphCtx.stroke();
+            }
+
             animationFrameId = requestAnimationFrame(() => draw(t + 0.02));
         }
 
         function startSimulation() {
             cancelAnimationFrame(animationFrameId);
-            A = parseFloat(document.getElementById('amplitude').value);
+            A = eval(parseExpression(document.getElementById('amplitude').value));
             omega = eval(parseExpression(document.getElementById('angularFrequency').value));
             phi = eval(parseExpression(document.getElementById('phase').value));
             graph = document.getElementById('graph');
@@ -196,7 +258,7 @@
         }
 
         function calculateMetrics() {
-            const positionInput = parseFloat(document.getElementById('position').value);
+            const positionInput = eval(parseExpression(document.getElementById('position').value));
             const unit = document.getElementById('position-unit').value;
             if (isNaN(positionInput)) {
                 metricsInfo.innerHTML = 'Please enter a valid position.';
@@ -206,28 +268,34 @@
             const conversionFactor = units[unit];
             const positionInMeters = positionInput * conversionFactor;
 
-            // Find the time for the given position using the inverse of the cosine function
-            // Solving A * cos(omega * t + phi) = positionInMeters
-            let time = Math.acos(positionInMeters / A) / omega;
-            if (positionInMeters < 0) {
-                time = -time; // Handle the negative side if needed
-            }
+            // Calculate time for positive and negative positions
+            let time1 = Math.acos(positionInMeters / A) / omega;
+            let time2 = -Math.acos(positionInMeters / A) / omega;
 
-            // Calculate speed and acceleration
+            // Calculate speed and acceleration for both times
             const angularVelocity = omega;
-            const speed = -A * angularVelocity * Math.sin(omega * time + phi);
-            const acceleration = -A * angularVelocity * angularVelocity * Math.cos(omega * time + phi);
+            const speed1 = -A * angularVelocity * Math.sin(omega * time1 + phi);
+            const speed2 = -A * angularVelocity * Math.sin(omega * time2 + phi);
+            const acceleration1 = -A * angularVelocity * angularVelocity * Math.cos(omega * time1 + phi);
+            const acceleration2 = -A * angularVelocity * angularVelocity * Math.cos(omega * time2 + phi);
 
-            // Display metrics
+            // Update position line
+            positionLineX = (time1 / (2 * Math.PI)) * graph.width;
+
+            // Display metrics for both times
             metricsInfo.innerHTML = `
-                Time: ${time.toFixed(2)} s<br>
-                Speed: ${speed.toFixed(2)} units/s<br>
-                Acceleration: ${acceleration.toFixed(2)} units/s²
+                Time 1: ${time1.toFixed(2)} s<br>
+                Speed 1: ${speed1.toFixed(2)} ${unit}/s<br>
+                Acceleration 1: ${acceleration1.toFixed(2)} ${unit}/s²<br><br>
+                Time 2: ${time2.toFixed(2)} s<br>
+                Speed 2: ${speed2.toFixed(2)} ${unit}/s<br>
+                Acceleration 2: ${acceleration2.toFixed(2)} ${unit}/s²
             `;
         }
 
         function calculateTimeMetrics() {
-            const timeInput = parseFloat(document.getElementById('time').value);
+            const timeInput = eval(parseExpression(document.getElementById('time').value));
+            const unit = document.getElementById('position-unit').value;
             if (isNaN(timeInput)) {
                 metricsInfo.innerHTML = 'Please enter a valid time.';
                 return;
@@ -240,9 +308,9 @@
 
             // Display metrics
             metricsInfo.innerHTML = `
-                Position: ${position.toFixed(2)} units<br>
-                Speed: ${speed.toFixed(2)} units/s<br>
-                Acceleration: ${acceleration.toFixed(2)} units/s²
+                Position: ${position.toFixed(2)} ${unit}<br>
+                Speed: ${speed.toFixed(2)} ${unit}/s<br>
+                Acceleration: ${acceleration.toFixed(2)} ${unit}/s²
             `;
         }
 
