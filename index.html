@@ -211,110 +211,119 @@
             // Draw the harmonic motion graph
             graphCtx.beginPath();
             for (let i = 0; i < graphPoints.length; i++) {
-                const pt = graphPoints[i];
+                const x = graphPoints[i].x * 50;
+                const y = graph.height / 2 - graphPoints[i].y * 50;
                 if (i === 0) {
-                    graphCtx.moveTo(pt.x * 50, graph.height / 2 - pt.y * 50);
+                    graphCtx.moveTo(x, y);
                 } else {
-                    graphCtx.lineTo(pt.x * 50, graph.height / 2 - pt.y * 50);
+                    graphCtx.lineTo(x, y);
                 }
             }
-            graphCtx.strokeStyle = 'green';
+            graphCtx.strokeStyle = 'black'; // Color for the graph
             graphCtx.stroke();
 
-            // Draw position line if defined
+            // Draw the position line
             if (positionLineX !== undefined) {
                 graphCtx.beginPath();
                 graphCtx.moveTo(positionLineX, 0);
                 graphCtx.lineTo(positionLineX, graph.height);
-                graphCtx.strokeStyle = 'purple';
+                graphCtx.strokeStyle = 'green'; // Color for the position line
                 graphCtx.stroke();
             }
 
-            animationFrameId = requestAnimationFrame(() => draw(t + 0.02));
+            // Update time
+            const newTime = t + 0.01;
+            if (newTime * 50 < graph.width) {
+                animationFrameId = requestAnimationFrame(() => draw(newTime));
+            }
         }
 
         function startSimulation() {
-            cancelAnimationFrame(animationFrameId);
-            A = eval(parseExpression(document.getElementById('amplitude').value));
-            omega = eval(parseExpression(document.getElementById('angularFrequency').value));
-            phi = eval(parseExpression(document.getElementById('phase').value));
+            const amplitudeInput = document.getElementById('amplitude').value;
+            const angularFrequencyInput = document.getElementById('angularFrequency').value;
+            const phaseInput = document.getElementById('phase').value;
+
+            A = parseFloat(eval(parseExpression(amplitudeInput)));
+            omega = parseFloat(eval(parseExpression(angularFrequencyInput)));
+            phi = parseFloat(eval(parseExpression(phaseInput)));
+
             graph = document.getElementById('graph');
             graphCtx = graph.getContext('2d');
             graphPoints = [];
+            positionLineX = undefined;
+
+            cancelAnimationFrame(animationFrameId);
             draw(0);
         }
 
-        function showClickInfo(event) {
-            const rect = graph.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-
-            // Calculate the corresponding time and position
-            const time = x / 50;
-            const position = A * Math.cos(omega * time + phi);
-
-            // Display information
-            clickInfo.innerHTML = `Time: ${time.toFixed(2)}s<br>Position: ${position.toFixed(2)}`;
-        }
-
         function calculateMetrics() {
-            const positionInput = eval(parseExpression(document.getElementById('position').value));
-            const unit = document.getElementById('position-unit').value;
-            if (isNaN(positionInput)) {
-                metricsInfo.innerHTML = 'Please enter a valid position.';
-                return;
-            }
+            const positionInput = document.getElementById('position').value;
+            const positionUnit = document.getElementById('position-unit').value;
 
-            const conversionFactor = units[unit];
-            const positionInMeters = positionInput * conversionFactor;
+            const x = parseFloat(positionInput) * units[positionUnit];
+            const t1 = (Math.acos(x / A) - phi) / omega;
+            const t2 = (-Math.acos(x / A) - phi) / omega;
+            const speed1 = Math.abs(-A * omega * Math.sin(omega * t1 + phi));
+            const speed2 = Math.abs(-A * omega * Math.sin(omega * t2 + phi));
+            const acceleration1 = Math.abs(-omega * omega * x);
+            const acceleration2 = Math.abs(-omega * omega * x);
 
-            // Calculate time for positive and negative positions
-            let time1 = Math.acos(positionInMeters / A) / omega;
-            let time2 = -Math.acos(positionInMeters / A) / omega;
-
-            // Calculate speed and acceleration for both times
-            const angularVelocity = omega;
-            const speed1 = -A * angularVelocity * Math.sin(omega * time1 + phi);
-            const speed2 = -A * angularVelocity * Math.sin(omega * time2 + phi);
-            const acceleration1 = -A * angularVelocity * angularVelocity * Math.cos(omega * time1 + phi);
-            const acceleration2 = -A * angularVelocity * angularVelocity * Math.cos(omega * time2 + phi);
-
-            // Update position line
-            positionLineX = (time1 / (2 * Math.PI)) * graph.width;
-
-            // Display metrics for both times
             metricsInfo.innerHTML = `
-                Time 1: ${time1.toFixed(2)} s<br>
-                Speed 1: ${speed1.toFixed(2)} ${unit}/s<br>
-                Acceleration 1: ${acceleration1.toFixed(2)} ${unit}/s²<br><br>
-                Time 2: ${time2.toFixed(2)} s<br>
-                Speed 2: ${speed2.toFixed(2)} ${unit}/s<br>
-                Acceleration 2: ${acceleration2.toFixed(2)} ${unit}/s²
+                <p>Metrics for position x = ${x} m:</p>
+                <p>First Time (t1): ${t1.toFixed(2)} s</p>
+                <p>Second Time (t2): ${t2.toFixed(2)} s</p>
+                <p>Speed at t1: ${speed1.toFixed(2)} m/s</p>
+                <p>Speed at t2: ${speed2.toFixed(2)} m/s</p>
+                <p>Acceleration: ${acceleration1.toFixed(2)} m/s² (same at t1 and t2)</p>
             `;
         }
 
         function calculateTimeMetrics() {
-            const timeInput = eval(parseExpression(document.getElementById('time').value));
-            const unit = document.getElementById('position-unit').value;
-            if (isNaN(timeInput)) {
-                metricsInfo.innerHTML = 'Please enter a valid time.';
-                return;
-            }
+            const timeInput = document.getElementById('time').value;
+            const t = parseFloat(timeInput);
 
-            // Calculate position, speed, and acceleration for the given time
-            const position = A * Math.cos(omega * timeInput + phi);
-            const speed = -A * omega * Math.sin(omega * timeInput + phi);
-            const acceleration = -A * omega * omega * Math.cos(omega * timeInput + phi);
+            const x = A * Math.cos(omega * t + phi);
+            const speed = -A * omega * Math.sin(omega * t + phi);
+            const acceleration = -omega * omega * x;
 
-            // Display metrics
             metricsInfo.innerHTML = `
-                Position: ${position.toFixed(2)} ${unit}<br>
-                Speed: ${speed.toFixed(2)} ${unit}/s<br>
-                Acceleration: ${acceleration.toFixed(2)} ${unit}/s²
+                <p>Metrics for time t = ${t} s:</p>
+                <p>Position (x): ${x.toFixed(2)} m</p>
+                <p>Speed: ${speed.toFixed(2)} m/s</p>
+                <p>Acceleration: ${acceleration.toFixed(2)} m/s²</p>
             `;
         }
 
-        graph.addEventListener('click', showClickInfo);
+        graph.addEventListener('mousemove', (event) => {
+            const rect = graph.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            const time = (x / 50).toFixed(2);
+            const position = ((graph.height / 2 - y) / 50).toFixed(2);
+
+            tooltip.style.left = event.clientX + 10 + 'px';
+            tooltip.style.top = event.clientY + 10 + 'px';
+            tooltip.style.display = 'block';
+            tooltip.innerHTML = `Time: ${time}s<br>Position: ${position}m`;
+        });
+
+        graph.addEventListener('mouseout', () => {
+            tooltip.style.display = 'none';
+        });
+
+        graph.addEventListener('click', (event) => {
+            const rect = graph.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            const time = (x / 50).toFixed(2);
+            const position = ((graph.height / 2 - y) / 50).toFixed(2);
+
+            clickInfo.innerHTML = `Clicked at Time: ${time}s, Position: ${position}m`;
+            positionLineX = x;
+            draw(parseFloat(time));
+        });
     </script>
 </body>
 </html>
